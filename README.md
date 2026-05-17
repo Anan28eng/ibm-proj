@@ -1,4 +1,4 @@
- AI Cofounder
+
 AI Cofounder is an autonomous multi-agent startup generation platform that transforms startup ideas into structured MVP workflows using collaborative AI agents.
 The platform combines frontend engineering, backend orchestration, and AI-powered automation to simulate how real startup teams analyze, plan, and structure MVP development.
 ________________________________________
