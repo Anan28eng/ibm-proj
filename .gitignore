@@ -1,0 +1,88 @@
+# Created by venv; see https://docs.python.org/3/library/venv.html
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# VS Code
+.vscode/
+.history/
+
+# PyCharm
+.idea/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Coverage / Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# FastAPI
+*.db
+*.sqlite3
+
+# Generated Outputs
+generated_mvp/
+outputs/
+temp/
+tmp/
+
+# Node / React
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# React Build
+frontend/build/
+frontend/dist/
+
+# Package Locks (optional for hackathon)
+package-lock.json
+yarn.lock
+
+# Secrets
+secrets.json
+credentials.json
+
+# Mac/Linux
+*.swp
+*.swo
+
+# Docker
+*.tar
+
+# Runtime Files
+*.pid
+*.seed
+
+# AI Generated Cache
+cache/
