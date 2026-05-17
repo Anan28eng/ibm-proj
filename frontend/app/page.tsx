@@ -738,6 +738,7 @@ function Dashboard({ idea }) {
   const termRef = useRef();
   const [ideaVal, setIdeaVal] = useState(idea || "");
   const [running, setRunning] = useState(!!idea);
+  const [prUrl] = useState("https://github.com/microsoft/vscode");
 
   const runOrchestration = useCallback(() => {
     if (!ideaVal.trim()) return;
@@ -1001,7 +1002,7 @@ function Dashboard({ idea }) {
 
           {/* Tab content */}
           <div style={{ flex: 1, overflowY: "auto", padding: 24 }}>
-            <TabContent tab={activeTab} unlocked={unlockedTabs.has(activeTab)} idea={ideaVal} />
+            <TabContent tab={activeTab} unlocked={unlockedTabs.has(activeTab)} idea={ideaVal} prUrl={prUrl} />
           </div>
         </main>
 
@@ -1041,7 +1042,7 @@ function Dashboard({ idea }) {
 /* ─────────────────────────────────────────────
    TAB CONTENT
 ───────────────────────────────────────────── */
-function TabContent({ tab, unlocked, idea }) {
+function TabContent({ tab, unlocked, idea, prUrl }: { tab: string; unlocked: boolean; idea: string; prUrl?: string }) {
   if (!unlocked) return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12, opacity: 0.5 }}>
       <div style={{ fontSize: 24, color: C.textDim }}>○</div>
@@ -1049,12 +1050,12 @@ function TabContent({ tab, unlocked, idea }) {
     </div>
   );
 
-  const content = {
+  const content: Record<string, React.ReactElement> = {
     validation: <ValidationOutput idea={idea} />,
     architecture: <ArchOutput />,
     codegen: <CodeOutput />,
     security: <SecurityOutput />,
-    github: <GitHubOutput idea={idea} />,
+    github: <GitHubOutput idea={idea} prUrl={prUrl} />,
   };
 
   return <div style={{ animation: "fadeUp 0.4s ease" }}>{content[tab]}</div>;
@@ -1172,7 +1173,7 @@ function SecurityOutput() {
   );
 }
 
-function GitHubOutput({ idea }) {
+function GitHubOutput({ idea, prUrl }: { idea: string; prUrl?: string }) {
   return (
     <div>
       <OutputSection title="Pull Request">
@@ -1192,6 +1193,35 @@ function GitHubOutput({ idea }) {
               <div style={{ color: C.green }}>+ 47 files changed, 4,821 insertions(+)</div>
               <div style={{ color: C.textMuted }}>✓ CI: passing  ·  lint: clean  ·  tests: 94%</div>
               <div style={{ color: C.textMuted }}>✓ Security: 0 critical, 0 high (2 medium auto-patched)</div>
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <button
+                onClick={() => window.open(prUrl, '_blank')}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: 8,
+                  background: C.accent,
+                  border: "none",
+                  color: "#000",
+                  fontWeight: 700,
+                  fontSize: 12,
+                  cursor: "pointer",
+                  letterSpacing: "0.04em",
+                  transition: "all 0.2s",
+                  fontFamily: FONT_BODY,
+                  boxShadow: `0 0 20px ${C.accentGlow}`,
+                }}
+                onMouseEnter={e => {
+                  (e.target as HTMLButtonElement).style.transform = "translateY(-2px)";
+                  (e.target as HTMLButtonElement).style.boxShadow = `0 0 30px ${C.accentGlow}`;
+                }}
+                onMouseLeave={e => {
+                  (e.target as HTMLButtonElement).style.transform = "translateY(0)";
+                  (e.target as HTMLButtonElement).style.boxShadow = `0 0 20px ${C.accentGlow}`;
+                }}
+              >
+                Open PR →
+              </button>
             </div>
           </div>
         </div>
