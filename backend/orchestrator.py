@@ -13,6 +13,7 @@ Each agent's output feeds into the next, creating a comprehensive MVP package.
 """
 
 import time
+import logging
 from typing import Dict, Any, Optional, Callable
 from datetime import datetime
 
@@ -22,6 +23,13 @@ from agents.architect_agent import architect_agent
 from agents.builder_agent import builder_agent
 from agents.security_agent import security_agent, has_critical_issues
 from agents.github_agent import github_agent
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 class PipelineStatus:
@@ -384,6 +392,263 @@ def validate_idea(idea: str) -> Dict[str, Any]:
         "idea_length": len(idea),
         "word_count": len(idea.split())
     }
+
+
+async def run_pipeline(idea: str, live_mode: bool = False) -> Dict[str, Any]:
+    """
+    Main pipeline function for sequential agent execution.
+    
+    This function orchestrates the execution of all agents in sequence:
+    1. business_agent - Analyze business viability
+    2. architect_agent - Design technical architecture
+    3. builder_agent - Generate code scaffold
+    4. security_agent - Review security
+    5. github_agent - Prepare GitHub integration
+    
+    Args:
+        idea (str): The startup idea description
+        live_mode (bool): If False, returns mock data for testing (default: False)
+    
+    Returns:
+        Dict containing:
+            - success (bool): Whether pipeline completed successfully
+            - idea (str): The original idea
+            - live_mode (bool): Whether live mode was used
+            - stages (Dict): Results from each agent stage
+            - errors (List): Any errors encountered
+            - metadata (Dict): Execution metadata
+    
+    Example:
+        >>> result = await run_pipeline("A mobile app for tracking water intake", live_mode=True)
+        >>> if result['success']:
+        >>>     print(f"Pipeline completed in {result['metadata']['duration_seconds']}s")
+    """
+    start_time = time.time()
+    
+    # Initialize response structure
+    response = {
+        "success": False,
+        "idea": idea,
+        "live_mode": live_mode,
+        "stages": {
+            "business": None,
+            "architect": None,
+            "builder": None,
+            "security": None,
+            "github": None
+        },
+        "errors": [],
+        "metadata": {
+            "start_time": datetime.now().isoformat(),
+            "end_time": None,
+            "duration_seconds": 0,
+            "stages_completed": 0,
+            "stages_failed": 0
+        }
+    }
+    
+    # Mock mode - return test data without calling agents
+    if not live_mode:
+        logger.info("Running in MOCK mode - returning test data")
+        response["success"] = True
+        response["stages"] = {
+            "business": {"viability_score": 85, "mock": True},
+            "architect": {"architecture": "mock_architecture", "mock": True},
+            "builder": {"scaffold": "mock_scaffold", "mock": True},
+            "security": {"security_rating": 90, "mock": True},
+            "github": {"repository": "mock_repo", "mock": True}
+        }
+        response["metadata"]["stages_completed"] = 5
+        response["metadata"]["duration_seconds"] = 0.1
+        response["metadata"]["end_time"] = datetime.now().isoformat()
+        logger.info("Mock pipeline completed successfully")
+        return response
+    
+    try:
+        logger.info("=" * 80)
+        logger.info("STARTING AI VENTURE STUDIO PIPELINE")
+        logger.info(f"Idea: {idea[:100]}...")
+        logger.info("=" * 80)
+        
+        # Stage 1: Business Agent
+        logger.info("\n[STAGE 1/5] Starting Business Analysis...")
+        try:
+            stage_start = time.time()
+            business_result = business_agent(idea)
+            stage_duration = time.time() - stage_start
+            
+            if business_result.get("error"):
+                raise Exception(business_result.get("message", "Business agent failed"))
+            
+            response["stages"]["business"] = business_result
+            response["metadata"]["stages_completed"] += 1
+            logger.info(f"✓ Business Analysis completed in {stage_duration:.2f}s")
+            logger.info(f"  Viability Score: {business_result.get('viability_score', 'N/A')}/100")
+            
+        except Exception as e:
+            error_msg = f"Business Agent failed: {str(e)}"
+            logger.error(f"✗ {error_msg}")
+            response["errors"].append({"stage": "business", "error": error_msg})
+            response["metadata"]["stages_failed"] += 1
+            raise
+        
+        # Stage 2: Architect Agent
+        logger.info("\n[STAGE 2/5] Starting Technical Architecture Design...")
+        try:
+            stage_start = time.time()
+            architect_result = architect_agent(idea, response["stages"]["business"])
+            stage_duration = time.time() - stage_start
+            
+            if architect_result.get("error"):
+                raise Exception(architect_result.get("message", "Architect agent failed"))
+            
+            response["stages"]["architect"] = architect_result
+            response["metadata"]["stages_completed"] += 1
+            logger.info(f"✓ Architecture Design completed in {stage_duration:.2f}s")
+            
+            frontend = architect_result.get('frontend_stack', {})
+            backend = architect_result.get('backend_stack', {})
+            logger.info(f"  Frontend: {frontend.get('framework', 'N/A')}")
+            logger.info(f"  Backend: {backend.get('framework', 'N/A')}")
+            
+        except Exception as e:
+            error_msg = f"Architect Agent failed: {str(e)}"
+            logger.error(f"✗ {error_msg}")
+            response["errors"].append({"stage": "architect", "error": error_msg})
+            response["metadata"]["stages_failed"] += 1
+            raise
+        
+        # Stage 3: Builder Agent
+        logger.info("\n[STAGE 3/5] Starting Code Scaffold Generation...")
+        try:
+            stage_start = time.time()
+            builder_result = builder_agent(idea, response["stages"]["architect"])
+            stage_duration = time.time() - stage_start
+            
+            if builder_result.get("error"):
+                raise Exception(builder_result.get("message", "Builder agent failed"))
+            
+            response["stages"]["builder"] = builder_result
+            response["metadata"]["stages_completed"] += 1
+            
+            react_files = len(builder_result.get('react_scaffold', {}))
+            fastapi_files = len(builder_result.get('fastapi_scaffold', {}))
+            logger.info(f"✓ Code Generation completed in {stage_duration:.2f}s")
+            logger.info(f"  React Files: {react_files}")
+            logger.info(f"  FastAPI Files: {fastapi_files}")
+            
+        except Exception as e:
+            error_msg = f"Builder Agent failed: {str(e)}"
+            logger.error(f"✗ {error_msg}")
+            response["errors"].append({"stage": "builder", "error": error_msg})
+            response["metadata"]["stages_failed"] += 1
+            raise
+        
+        # Stage 4: Security Agent
+        logger.info("\n[STAGE 4/5] Starting Security Review...")
+        try:
+            stage_start = time.time()
+            security_result = security_agent(
+                response["stages"]["builder"],
+                response["stages"]["architect"]
+            )
+            stage_duration = time.time() - stage_start
+            
+            if security_result.get("error"):
+                raise Exception(security_result.get("message", "Security agent failed"))
+            
+            response["stages"]["security"] = security_result
+            response["metadata"]["stages_completed"] += 1
+            
+            security_rating = security_result.get('security_rating', 0)
+            severity = security_result.get('severity_summary', {})
+            logger.info(f"✓ Security Review completed in {stage_duration:.2f}s")
+            logger.info(f"  Security Rating: {security_rating}/100")
+            logger.info(f"  Critical Issues: {severity.get('critical', 0)}")
+            
+            # Check for critical security issues
+            if has_critical_issues(security_result):
+                logger.warning("⚠ Critical security issues detected!")
+                response["errors"].append({
+                    "stage": "security",
+                    "error": "Critical security issues found",
+                    "severity": "critical"
+                })
+            
+        except Exception as e:
+            error_msg = f"Security Agent failed: {str(e)}"
+            logger.error(f"✗ {error_msg}")
+            response["errors"].append({"stage": "security", "error": error_msg})
+            response["metadata"]["stages_failed"] += 1
+            raise
+        
+        # Stage 5: GitHub Agent
+        logger.info("\n[STAGE 5/5] Starting GitHub Integration Preparation...")
+        try:
+            stage_start = time.time()
+            github_result = github_agent(
+                idea,
+                response["stages"]["builder"],
+                response["stages"]["security"],
+                response["stages"]["architect"]
+            )
+            stage_duration = time.time() - stage_start
+            
+            if github_result.get("error"):
+                raise Exception(github_result.get("message", "GitHub agent failed"))
+            
+            response["stages"]["github"] = github_result
+            response["metadata"]["stages_completed"] += 1
+            
+            repo = github_result.get('repository_status', {})
+            logger.info(f"✓ GitHub Integration completed in {stage_duration:.2f}s")
+            logger.info(f"  Repository: {repo.get('name', 'N/A')}")
+            
+        except Exception as e:
+            error_msg = f"GitHub Agent failed: {str(e)}"
+            logger.error(f"✗ {error_msg}")
+            response["errors"].append({"stage": "github", "error": error_msg})
+            response["metadata"]["stages_failed"] += 1
+            raise
+        
+        # Pipeline completed successfully
+        response["success"] = True
+        end_time = time.time()
+        duration = end_time - start_time
+        response["metadata"]["end_time"] = datetime.now().isoformat()
+        response["metadata"]["duration_seconds"] = round(duration, 2)
+        
+        logger.info("\n" + "=" * 80)
+        logger.info("PIPELINE COMPLETED SUCCESSFULLY")
+        logger.info(f"Total Duration: {duration:.2f}s")
+        logger.info(f"Stages Completed: {response['metadata']['stages_completed']}/5")
+        logger.info("=" * 80)
+        
+        return response
+        
+    except Exception as e:
+        # Pipeline failed
+        end_time = time.time()
+        duration = end_time - start_time
+        response["success"] = False
+        response["metadata"]["end_time"] = datetime.now().isoformat()
+        response["metadata"]["duration_seconds"] = round(duration, 2)
+        
+        logger.error("\n" + "=" * 80)
+        logger.error("PIPELINE FAILED")
+        logger.error(f"Error: {str(e)}")
+        logger.error(f"Stages Completed: {response['metadata']['stages_completed']}/5")
+        logger.error(f"Stages Failed: {response['metadata']['stages_failed']}")
+        logger.error("=" * 80)
+        
+        # Add general pipeline error if not already added
+        if not any(err.get("stage") == "pipeline" for err in response["errors"]):
+            response["errors"].append({
+                "stage": "pipeline",
+                "error": str(e)
+            })
+        
+        return response
 
 
 # Example usage and testing
