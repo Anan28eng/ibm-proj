@@ -89,6 +89,7 @@ const TERMINAL_SEQUENCE = [
 
 const STAGE_UNLOCK_AT_LINE = { validation: 6, architecture: 12, codegen: 18, security: 23, github: 29 };
 const STAGE_DONE_AT_LINE = { validation: 11, architecture: 17, codegen: 22, security: 27, github: 32 };
+const GITHUB_PULLS_URL = "https://github.com/Anan28eng/ibm-proj/pulls";
 
 /* ─────────────────────────────────────────────
    HOOKS
@@ -739,17 +740,46 @@ function Dashboard({ idea }) {
   const termRef = useRef();
   const [ideaVal, setIdeaVal] = useState(idea || "");
   const [running, setRunning] = useState(!!idea);
-  const [prUrl] = useState("https://github.com/microsoft/vscode");
+  const [prUrl, setPrUrl] = useState(GITHUB_PULLS_URL);
+  const [backendError, setBackendError] = useState("");
+  const [backendResponse, setBackendResponse] = useState(null);
 
-  const runOrchestration = useCallback(() => {
+  const runOrchestration = useCallback(async () => {
     if (!ideaVal.trim()) return;
     setRunning(true);
     setTermLines([]);
     setStageState({});
     setUnlockedTabs(new Set());
     setGlobalProgress(0);
+    setBackendError("");
+    setPrUrl(GITHUB_PULLS_URL);
 
     const totalTime = TERMINAL_SEQUENCE[TERMINAL_SEQUENCE.length - 1].t;
+
+    // Call backend API
+    try {
+      const backendRes = await fetch("http://localhost:8000/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idea: ideaVal, live_mode: false })
+      });
+      
+      if (backendRes.ok) {
+        const data = await backendRes.json();
+        setBackendResponse(data);
+        
+        // Confirm GitHub stage produced PR metadata (live pipeline)
+        if (data.data?.stages?.github?.pull_request_info?.title) {
+          setPrUrl(GITHUB_PULLS_URL);
+        }
+      } else {
+        setBackendError("Backend API returned an error");
+        console.error("Backend error:", backendRes.status);
+      }
+    } catch (e) {
+      setBackendError("Could not connect to backend. Running in simulation mode.");
+      console.error("Backend connection error:", e);
+    }
 
     TERMINAL_SEQUENCE.forEach((line, i) => {
       setTimeout(() => {
@@ -899,6 +929,11 @@ function Dashboard({ idea }) {
           {/* Idea input bar */}
           <div style={{ padding: "20px 24px", borderBottom: `1px solid ${C.border}`, background: C.surface, flexShrink: 0 }}>
             <div style={{ fontSize: 10, color: C.textDim, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: FONT_MONO, marginBottom: 10 }}>Startup Idea</div>
+            {backendError && (
+              <div style={{ padding: "8px 12px", borderRadius: 6, background: `${C.amber}1a`, border: `1px solid ${C.amber}44`, marginBottom: 10, fontSize: 12, color: C.amber, fontFamily: FONT_MONO }}>
+                ⚠ {backendError}
+              </div>
+            )}
             <div style={{ display: "flex", gap: 10 }}>
               <input
                 value={ideaVal}
@@ -1003,7 +1038,13 @@ function Dashboard({ idea }) {
 
           {/* Tab content */}
           <div style={{ flex: 1, overflowY: "auto", padding: 24 }}>
-            <TabContent tab={activeTab} unlocked={unlockedTabs.has(activeTab)} idea={ideaVal} prUrl={prUrl} />
+            <TabContent
+  tab={activeTab}
+  unlocked={unlockedTabs.has(activeTab)}
+  idea={ideaVal}
+  prUrl={prUrl}
+  running={running}
+/>
           </div>
         </main>
 
@@ -1043,7 +1084,7 @@ function Dashboard({ idea }) {
 /* ─────────────────────────────────────────────
    TAB CONTENT
 ───────────────────────────────────────────── */
-function TabContent({ tab, unlocked, idea, prUrl }: { tab: string; unlocked: boolean; idea: string; prUrl?: string }) {
+function TabContent({ tab, unlocked, idea, prUrl, running }: { tab: string; unlocked: boolean; idea: string; prUrl?: string; running: boolean }) {
   if (!unlocked) return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12, opacity: 0.5 }}>
       <div style={{ fontSize: 24, color: C.textDim }}>○</div>
@@ -1056,7 +1097,7 @@ function TabContent({ tab, unlocked, idea, prUrl }: { tab: string; unlocked: boo
     architecture: <ArchOutput />,
     codegen: <CodeOutput />,
     security: <SecurityOutput />,
-    github: <GitHubOutput idea={idea} prUrl={prUrl} />,
+    github: <GitHubOutput idea={idea} prUrl={prUrl} running={running} />,
   };
 
   return <div style={{ animation: "fadeUp 0.4s ease" }}>{content[tab]}</div>;
@@ -1174,7 +1215,7 @@ function SecurityOutput() {
   );
 }
 
-function GitHubOutput({ idea, prUrl }: { idea: string; prUrl?: string }) {
+function GitHubOutput({ idea, prUrl, running }: { idea: string; prUrl?: string; running: boolean }) {
   return (
     <div>
       <OutputSection title="Pull Request">
@@ -1197,28 +1238,40 @@ function GitHubOutput({ idea, prUrl }: { idea: string; prUrl?: string }) {
             </div>
             <div style={{ marginTop: 16 }}>
               <button
-                onClick={() => window.open(prUrl, '_blank')}
+                onClick={() => {
+                  if (prUrl) {
+                    window.open(prUrl, '_blank');
+                  } else {
+                    alert("PR URL not available. Please ensure the orchestration completed successfully.");
+                  }
+                }}
+                disabled={!prUrl || !running}
                 style={{
                   padding: "10px 20px",
                   borderRadius: 8,
-                  background: C.accent,
+                  background: prUrl && running ? C.accent : C.textDim,
                   border: "none",
                   color: "#000",
                   fontWeight: 700,
                   fontSize: 12,
-                  cursor: "pointer",
+                  cursor: prUrl && running ? "pointer" : "default",
                   letterSpacing: "0.04em",
                   transition: "all 0.2s",
                   fontFamily: FONT_BODY,
-                  boxShadow: `0 0 20px ${C.accentGlow}`,
+                  boxShadow: prUrl ? `0 0 20px ${C.accentGlow}` : "none",
+                  opacity: prUrl ? 1 : 0.5,
                 }}
                 onMouseEnter={e => {
-                  (e.target as HTMLButtonElement).style.transform = "translateY(-2px)";
-                  (e.target as HTMLButtonElement).style.boxShadow = `0 0 30px ${C.accentGlow}`;
+                  if (prUrl && running) {
+                    (e.target as HTMLButtonElement).style.transform = "translateY(-2px)";
+                    (e.target as HTMLButtonElement).style.boxShadow = `0 0 30px ${C.accentGlow}`;
+                  }
                 }}
                 onMouseLeave={e => {
-                  (e.target as HTMLButtonElement).style.transform = "translateY(0)";
-                  (e.target as HTMLButtonElement).style.boxShadow = `0 0 20px ${C.accentGlow}`;
+                  if (prUrl && running) {
+                    (e.target as HTMLButtonElement).style.transform = "translateY(0)";
+                    (e.target as HTMLButtonElement).style.boxShadow = `0 0 20px ${C.accentGlow}`;
+                  }
                 }}
               >
                 Open PR →
