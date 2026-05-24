@@ -90,7 +90,6 @@ const TERMINAL_SEQUENCE = [
 const STAGE_UNLOCK_AT_LINE = { validation: 6, architecture: 12, codegen: 18, security: 23, github: 29 };
 const STAGE_DONE_AT_LINE = { validation: 11, architecture: 17, codegen: 22, security: 27, github: 32 };
 const GITHUB_PULLS_URL = "https://github.com/Anan28eng/ibm-proj/pulls";
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
 /* ─────────────────────────────────────────────
    HOOKS
@@ -759,7 +758,7 @@ function Dashboard({ idea }) {
 
     // Call backend API
     try {
-      const backendRes = await fetch(`${API_BASE_URL}/generate`, {
+      const backendRes = await fetch("http://localhost:8000/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idea: ideaVal, live_mode: false })
